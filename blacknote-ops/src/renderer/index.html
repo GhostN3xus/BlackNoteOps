@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blacknote Ops</title>
+    <style>
+        body { background-color: #121212; color: #00ff00; font-family: 'Courier New', monospace; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .hidden { display: none; }
+        input, textarea, button { background: #000; border: 1px solid #333; color: #00ff00; padding: 10px; width: 100%; box-sizing: border-box; margin-bottom: 10px; font-family: inherit; }
+        button { cursor: pointer; border: 1px solid #00ff00; }
+        button:hover { background: #003300; }
+        .error { color: red; }
+        h1 { border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .note-item { border: 1px solid #333; padding: 10px; margin-bottom: 5px; cursor: pointer; }
+        .note-item:hover { background: #1a1a1a; }
+        #panic-btn { background: red; color: white; border: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="auth-screen">
+        <h1>BLACKNOTE OPS :: VAULT ACCESS</h1>
+        <p>ENTER PASSPHRASE TO DECRYPT IDENTITY</p>
+        <input type="password" id="password-input" placeholder="Passphrase...">
+        <button id="unlock-btn">UNLOCK VAULT</button>
+        <button id="create-btn">INITIALIZE NEW VAULT</button>
+        <p id="auth-msg" class="error"></p>
+    </div>
+
+    <div id="main-screen" class="hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1>OPERATIONAL DASHBOARD</h1>
+            <button id="panic-btn" style="width: auto;">PANIC WIPE</button>
+        </div>
+
+        <div style="display: flex; gap: 20px;">
+            <div style="width: 30%;">
+                <h3>NOTES</h3>
+                <button id="new-note-btn">+ NEW INTEL</button>
+                <div id="notes-list"></div>
+            </div>
+            <div style="width: 70%;">
+                <input type="text" id="note-title" placeholder="Target / Subject">
+                <textarea id="note-content" rows="20" placeholder="Intel data..."></textarea>
+                <button id="save-note-btn">ENCRYPT & SAVE</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { ipcRenderer } = require('electron');
+
+    const authScreen = document.getElementById('auth-screen');
+    const mainScreen = document.getElementById('main-screen');
+    const authMsg = document.getElementById('auth-msg');
+    const notesList = document.getElementById('notes-list');
+
+    // AUTH HANDLERS
+    document.getElementById('unlock-btn').addEventListener('click', async () => {
+        const password = document.getElementById('password-input').value;
+        const res = await ipcRenderer.invoke('vault:unlock', password);
+        if (res.success) {
+            authScreen.classList.add('hidden');
+            mainScreen.classList.remove('hidden');
+            loadNotes();
+        } else {
+            authMsg.textContent = "ACCESS DENIED: " + res.error;
+        }
+    });
+
+    document.getElementById('create-btn').addEventListener('click', async () => {
+        const password = document.getElementById('password-input').value;
+        if(!password) return;
+        const res = await ipcRenderer.invoke('vault:create', password);
+        if (res.success) {
+            authMsg.style.color = '#00ff00';
+            authMsg.textContent = "VAULT GENERATED. UNLOCK TO PROCEED.";
+        } else {
+            authMsg.style.color = 'red';
+            authMsg.textContent = "INIT FAILED: " + res.error;
+        }
+    });
+
+    document.getElementById('panic-btn').addEventListener('click', () => {
+        ipcRenderer.invoke('app:panic');
+    });
+
+    // NOTE HANDLERS
+    let currentId = null;
+
+    async function loadNotes() {
+        const res = await ipcRenderer.invoke('note:list');
+        if (res.success) {
+            notesList.innerHTML = '';
+            res.notes.forEach(n => {
+                const div = document.createElement('div');
+                div.className = 'note-item';
+                div.textContent = n.content.title || 'Untitled';
+                div.onclick = () => loadNoteIntoEditor(n);
+                notesList.appendChild(div);
+            });
+        }
+    }
+
+    function loadNoteIntoEditor(note) {
+        currentId = note.id;
+        document.getElementById('note-title').value = note.content.title;
+        document.getElementById('note-content').value = note.content.body;
+    }
+
+    document.getElementById('new-note-btn').addEventListener('click', () => {
+        currentId = crypto.randomUUID(); // Requires node integration or uuid lib
+        document.getElementById('note-title').value = '';
+        document.getElementById('note-content').value = '';
+    });
+
+    document.getElementById('save-note-btn').addEventListener('click', async () => {
+        if (!currentId) currentId = 'note_' + Date.now();
+
+        const content = {
+            title: document.getElementById('note-title').value,
+            body: document.getElementById('note-content').value,
+            type: 'md'
+        };
+
+        await ipcRenderer.invoke('note:save', { id: currentId, content });
+        loadNotes();
+    });
+
+</script>
+</body>
+</html>

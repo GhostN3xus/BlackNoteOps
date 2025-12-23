@@ -1,0 +1,32 @@
+{
+  "name": "blacknote-ops",
+  "version": "1.0.0",
+  "description": "Irreversible Secure Notebook for Offensive Security",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node tests/security-test.js",
+    "dist": "electron-builder"
+  },
+  "author": "Blacknote Ops",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "argon2": "^0.30.3",
+    "better-sqlite3": "^8.0.0",
+    "fs-extra": "^11.1.0",
+    "node-machine-id": "^1.1.12",
+    "uuid": "^9.0.0",
+    "winston": "^3.8.0"
+  },
+  "devDependencies": {
+    "electron": "^24.0.0",
+    "electron-builder": "^23.6.0"
+  },
+  "build": {
+    "appId": "com.blacknote.ops",
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    }
+  }
+}
